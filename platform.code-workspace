@@ -1,0 +1,8 @@
+{
+  "folders": [
+    { "path": "backend" },
+    { "path": "builder-ui" },
+    { "path": "runtime-ui" },
+    { "path": "docs" }
+  ]
+}
