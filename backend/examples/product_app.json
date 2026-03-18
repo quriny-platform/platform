@@ -1,0 +1,29 @@
+{
+  "entities": [
+    {
+      "name": "Product",
+      "fields": [
+        { "name": "id", "type": "uuid" },
+        { "name": "name", "type": "string" },
+        { "name": "price", "type": "number" }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "ProductList",
+      "path": "/products",
+      "components": ["ProductTable"]
+    }
+  ],
+  "components": [
+    {
+      "name": "ProductTable",
+      "type": "table",
+      "entity": "Product",
+      "fields": ["name", "price"]
+    }
+  ],
+  "actions": [],
+  "navigation": []
+}
