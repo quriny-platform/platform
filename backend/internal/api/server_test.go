@@ -12,10 +12,24 @@ import (
 	"quriny.dev/internal/store"
 )
 
-// TestServerEntityCRUDLifecycle verifies the full create → list → get → update
-// → delete → verify-gone cycle through the HTTP API using an in-memory store.
-func TestServerEntityCRUDLifecycle(t *testing.T) {
-	model := &dsl.AppModel{
+// newTestServer is a helper that creates a Server with the given model and an
+// in-memory store, ready for HTTP testing.
+func newTestServer(t *testing.T, model *dsl.AppModel) *Server {
+	t.Helper()
+
+	graph, err := ir.BuildAppGraph(model)
+	if err != nil {
+		t.Fatalf("build app graph: %v", err)
+	}
+
+	memStore := store.NewMemoryStore(model)
+	return NewServer(model, graph, memStore)
+}
+
+// fullCRUDModel returns a DSL model with a Product entity and all four CRUD
+// actions defined. This represents the "everything allowed" baseline.
+func fullCRUDModel() *dsl.AppModel {
+	return &dsl.AppModel{
 		Entities: []dsl.Entity{
 			{
 				Name: "Product",
@@ -26,16 +40,20 @@ func TestServerEntityCRUDLifecycle(t *testing.T) {
 				},
 			},
 		},
+		Actions: []dsl.Action{
+			{Name: "CreateProduct", Type: "create", Entity: "Product"},
+			{Name: "ListProducts", Type: "read", Entity: "Product"},
+			{Name: "UpdateProduct", Type: "update", Entity: "Product"},
+			{Name: "DeleteProduct", Type: "delete", Entity: "Product"},
+		},
 	}
+}
 
-	graph, err := ir.BuildAppGraph(model)
-	if err != nil {
-		t.Fatalf("build app graph: %v", err)
-	}
-
-	// Use the in-memory store implementation behind the EntityStore interface.
-	memStore := store.NewMemoryStore(model)
-	server := NewServer(model, graph, memStore)
+// TestServerEntityCRUDLifecycle verifies the full create → list → get → update
+// → delete → verify-gone cycle through the HTTP API using an in-memory store
+// with all CRUD actions enabled.
+func TestServerEntityCRUDLifecycle(t *testing.T) {
+	server := newTestServer(t, fullCRUDModel())
 
 	// Step 1: Create a new Product record.
 	created := performRequest(
@@ -113,6 +131,182 @@ func TestServerEntityCRUDLifecycle(t *testing.T) {
 	server.Handler().ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("expected deleted record status %d, got %d", http.StatusNotFound, recorder.Code)
+	}
+}
+
+// TestActionEnforcement_ReadOnlyEntity verifies that when only a "read" action
+// is defined, POST/PUT/DELETE are rejected with 405 Method Not Allowed.
+func TestActionEnforcement_ReadOnlyEntity(t *testing.T) {
+	model := &dsl.AppModel{
+		Entities: []dsl.Entity{
+			{
+				Name: "Product",
+				Fields: []dsl.Field{
+					{Name: "id", Type: "uuid"},
+					{Name: "name", Type: "string"},
+				},
+			},
+		},
+		Actions: []dsl.Action{
+			// Only read — no create, update, or delete.
+			{Name: "ListProducts", Type: "read", Entity: "Product"},
+		},
+	}
+
+	server := newTestServer(t, model)
+
+	// GET (list) should work.
+	performRequest(t, server.Handler(), http.MethodGet, "/entities/Product", nil, http.StatusOK)
+
+	// POST (create) should be rejected.
+	assertStatus(t, server.Handler(), http.MethodPost, "/entities/Product",
+		map[string]any{"name": "Blocked"}, http.StatusMethodNotAllowed)
+
+	// PUT (update) should be rejected.
+	assertStatus(t, server.Handler(), http.MethodPut, "/entities/Product/some-id",
+		map[string]any{"name": "Blocked"}, http.StatusMethodNotAllowed)
+
+	// DELETE should be rejected.
+	assertStatus(t, server.Handler(), http.MethodDelete, "/entities/Product/some-id",
+		nil, http.StatusMethodNotAllowed)
+}
+
+// TestActionEnforcement_CreateAndReadOnly verifies that when only "create" and
+// "read" actions are defined, update and delete are blocked.
+func TestActionEnforcement_CreateAndReadOnly(t *testing.T) {
+	model := &dsl.AppModel{
+		Entities: []dsl.Entity{
+			{
+				Name: "Product",
+				Fields: []dsl.Field{
+					{Name: "id", Type: "uuid"},
+					{Name: "name", Type: "string"},
+				},
+			},
+		},
+		Actions: []dsl.Action{
+			{Name: "CreateProduct", Type: "create", Entity: "Product"},
+			{Name: "ListProducts", Type: "read", Entity: "Product"},
+		},
+	}
+
+	server := newTestServer(t, model)
+
+	// Create should succeed.
+	created := performRequest(t, server.Handler(), http.MethodPost, "/entities/Product",
+		map[string]any{"name": "Allowed"}, http.StatusCreated)
+
+	recordID := created["id"].(string)
+
+	// Read should succeed.
+	performRequest(t, server.Handler(), http.MethodGet, "/entities/Product/"+recordID, nil, http.StatusOK)
+
+	// Update should be blocked (no "update" action).
+	assertStatus(t, server.Handler(), http.MethodPut, "/entities/Product/"+recordID,
+		map[string]any{"name": "Blocked"}, http.StatusMethodNotAllowed)
+
+	// Delete should be blocked (no "delete" action).
+	assertStatus(t, server.Handler(), http.MethodDelete, "/entities/Product/"+recordID,
+		nil, http.StatusMethodNotAllowed)
+}
+
+// TestActionEnforcement_NoActions verifies that when no actions are defined
+// for an entity, all CRUD operations are rejected.
+func TestActionEnforcement_NoActions(t *testing.T) {
+	model := &dsl.AppModel{
+		Entities: []dsl.Entity{
+			{
+				Name: "Product",
+				Fields: []dsl.Field{
+					{Name: "id", Type: "uuid"},
+					{Name: "name", Type: "string"},
+				},
+			},
+		},
+		Actions: []dsl.Action{}, // no actions at all
+	}
+
+	server := newTestServer(t, model)
+
+	assertStatus(t, server.Handler(), http.MethodGet, "/entities/Product", nil, http.StatusMethodNotAllowed)
+	assertStatus(t, server.Handler(), http.MethodPost, "/entities/Product",
+		map[string]any{"name": "Blocked"}, http.StatusMethodNotAllowed)
+	assertStatus(t, server.Handler(), http.MethodGet, "/entities/Product/some-id", nil, http.StatusMethodNotAllowed)
+	assertStatus(t, server.Handler(), http.MethodPut, "/entities/Product/some-id",
+		map[string]any{"name": "Blocked"}, http.StatusMethodNotAllowed)
+	assertStatus(t, server.Handler(), http.MethodDelete, "/entities/Product/some-id", nil, http.StatusMethodNotAllowed)
+}
+
+// TestActionEnforcement_AllowHeaderPresent verifies that 405 responses include
+// the Allow header listing the permitted methods.
+func TestActionEnforcement_AllowHeaderPresent(t *testing.T) {
+	model := &dsl.AppModel{
+		Entities: []dsl.Entity{
+			{
+				Name: "Product",
+				Fields: []dsl.Field{
+					{Name: "id", Type: "uuid"},
+					{Name: "name", Type: "string"},
+				},
+			},
+		},
+		Actions: []dsl.Action{
+			{Name: "ListProducts", Type: "read", Entity: "Product"},
+		},
+	}
+
+	server := newTestServer(t, model)
+
+	// POST should be rejected; the Allow header should include GET (from "read").
+	request := httptest.NewRequest(http.MethodPost, "/entities/Product", nil)
+	recorder := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", recorder.Code)
+	}
+
+	allow := recorder.Header().Get("Allow")
+	if allow == "" {
+		t.Fatal("expected Allow header to be set on 405 response")
+	}
+
+	if allow != "GET" {
+		t.Fatalf("expected Allow header to be 'GET', got %q", allow)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
+
+// assertStatus sends an HTTP request and asserts the response status code,
+// without decoding the body.
+func assertStatus(t *testing.T, handler http.Handler, method, path string, body any, wantStatus int) {
+	t.Helper()
+
+	var requestBody *bytes.Reader
+	if body == nil {
+		requestBody = bytes.NewReader(nil)
+	} else {
+		payload, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		requestBody = bytes.NewReader(payload)
+	}
+
+	request := httptest.NewRequest(method, path, requestBody)
+	if body != nil {
+		request.Header.Set("Content-Type", "application/json")
+	}
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != wantStatus {
+		t.Fatalf("%s %s: expected status %d, got %d (body: %s)",
+			method, path, wantStatus, recorder.Code, recorder.Body.String())
 	}
 }
 

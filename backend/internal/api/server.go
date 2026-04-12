@@ -17,10 +17,11 @@ import (
 // It delegates persistence to any store.EntityStore implementation,
 // making it agnostic to the underlying storage engine.
 type Server struct {
-	model *dsl.AppModel
-	graph *ir.AppGraph
-	store store.EntityStore
-	mux   *http.ServeMux
+	model   *dsl.AppModel
+	graph   *ir.AppGraph
+	store   store.EntityStore
+	actions *actionResolver
+	mux     *http.ServeMux
 }
 
 // HealthResponse is returned by the health endpoint.
@@ -33,10 +34,11 @@ type HealthResponse struct {
 // PostgreSQL, etc.), following the dependency inversion principle.
 func NewServer(model *dsl.AppModel, graph *ir.AppGraph, entityStore store.EntityStore) *Server {
 	server := &Server{
-		model: model,
-		graph: graph,
-		store: entityStore,
-		mux:   http.NewServeMux(),
+		model:   model,
+		graph:   graph,
+		store:   entityStore,
+		actions: newActionResolver(model),
+		mux:     http.NewServeMux(),
 	}
 
 	server.routes()
@@ -109,10 +111,19 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 
 	entityName := parts[0]
 
+	// Resolve which HTTP methods are allowed for this entity based on DSL actions.
+	collectionMethods, recordMethods := s.actions.AllowedMethodsForEntity(entityName)
+
 	// Collection-level operations: GET (list) and POST (create).
 	if len(parts) == 1 {
 		switch r.Method {
 		case http.MethodGet:
+			// GET /entities/{name} → requires a "read" action in the DSL.
+			if !s.actions.IsAllowed(entityName, actionRead) {
+				writeMethodNotAllowed(w, collectionMethods...)
+				return
+			}
+
 			items, err := s.store.List(entityName)
 			if err != nil {
 				writeError(w, http.StatusNotFound, err.Error())
@@ -127,6 +138,12 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case http.MethodPost:
+			// POST /entities/{name} → requires a "create" action in the DSL.
+			if !s.actions.IsAllowed(entityName, actionCreate) {
+				writeMethodNotAllowed(w, collectionMethods...)
+				return
+			}
+
 			record, err := decodeRecord(r)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
@@ -143,7 +160,7 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		writeMethodNotAllowed(w, http.MethodGet, http.MethodPost)
+		writeMethodNotAllowed(w, collectionMethods...)
 		return
 	}
 
@@ -153,6 +170,12 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 
 		switch r.Method {
 		case http.MethodGet:
+			// GET /entities/{name}/{id} → requires a "read" action in the DSL.
+			if !s.actions.IsAllowed(entityName, actionRead) {
+				writeMethodNotAllowed(w, recordMethods...)
+				return
+			}
+
 			record, err := s.store.Get(entityName, recordID)
 			if err != nil {
 				writeError(w, store.StatusCodeForError(err), err.Error())
@@ -163,6 +186,12 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case http.MethodPut:
+			// PUT /entities/{name}/{id} → requires an "update" action in the DSL.
+			if !s.actions.IsAllowed(entityName, actionUpdate) {
+				writeMethodNotAllowed(w, recordMethods...)
+				return
+			}
+
 			record, err := decodeRecord(r)
 			if err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
@@ -179,6 +208,12 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 			return
 
 		case http.MethodDelete:
+			// DELETE /entities/{name}/{id} → requires a "delete" action in the DSL.
+			if !s.actions.IsAllowed(entityName, actionDelete) {
+				writeMethodNotAllowed(w, recordMethods...)
+				return
+			}
+
 			if err := s.store.Delete(entityName, recordID); err != nil {
 				writeError(w, store.StatusCodeForError(err), err.Error())
 				return
@@ -188,7 +223,7 @@ func (s *Server) handleEntities(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		writeMethodNotAllowed(w, http.MethodGet, http.MethodPut, http.MethodDelete)
+		writeMethodNotAllowed(w, recordMethods...)
 		return
 	}
 
