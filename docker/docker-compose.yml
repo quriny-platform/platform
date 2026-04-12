@@ -1,0 +1,33 @@
+# Docker Compose for Quriny local development.
+#
+# Starts a PostgreSQL database that the Go backend can connect to.
+# Usage:
+#   docker compose -f platform/docker/docker-compose.yml up -d
+#   go run ./cmd/server -db "postgres://quriny:quriny@localhost:5432/quriny?sslmode=disable"
+#
+# To stop and remove volumes (fresh start):
+#   docker compose -f platform/docker/docker-compose.yml down -v
+
+services:
+  # PostgreSQL database for entity record persistence.
+  postgres:
+    image: postgres:16-alpine
+    container_name: quriny-postgres
+    environment:
+      POSTGRES_USER: quriny
+      POSTGRES_PASSWORD: quriny
+      POSTGRES_DB: quriny
+    ports:
+      # Expose on the default PostgreSQL port for local development.
+      - "5432:5432"
+    volumes:
+      # Named volume to persist data across container restarts.
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quriny"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
