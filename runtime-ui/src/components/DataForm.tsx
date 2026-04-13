@@ -22,7 +22,7 @@
  *     "fields": ["name", "price"], "actions": ["CreateProduct"] }
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAppStore } from "../store/appStore";
 import * as api from "../api/client";
@@ -30,9 +30,19 @@ import type { ComponentProps } from "./registry";
 
 export default function DataForm({ component }: ComponentProps) {
   const model = useAppStore((state) => state.model);
-  const createRecord = useAppStore((state) => state.createRecord);
-  const updateRecord = useAppStore((state) => state.updateRecord);
   const navigate = useNavigate();
+
+  // Stable references to store actions — avoids infinite re-render loops.
+  const createRecord = useCallback(
+    (data: Record<string, unknown>) =>
+      useAppStore.getState().createRecord(component.entity, data),
+    [component.entity]
+  );
+  const updateRecord = useCallback(
+    (recordId: string, data: Record<string, unknown>) =>
+      useAppStore.getState().updateRecord(component.entity, recordId, data),
+    [component.entity]
+  );
   const [searchParams] = useSearchParams();
 
   // If ?edit={id} is present, we're in edit mode.
@@ -97,9 +107,9 @@ export default function DataForm({ component }: ComponentProps) {
 
     try {
       if (isEditMode && editId) {
-        await updateRecord(component.entity, editId, formData);
+        await updateRecord(editId, formData);
       } else {
-        await createRecord(component.entity, formData);
+        await createRecord(formData);
       }
 
       // Navigate back to the table page on success.

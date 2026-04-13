@@ -12,7 +12,7 @@
  *   The first navigation item's path is used as the default redirect.
  */
 
-import { useEffect } from "react";
+import { useEffect, useCallback } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAppStore } from "./store/appStore";
 import AppLayout from "./layouts/AppLayout";
@@ -22,7 +22,9 @@ export default function App() {
   const model = useAppStore((state) => state.model);
   const isLoading = useAppStore((state) => state.isLoading);
   const error = useAppStore((state) => state.error);
-  const loadModel = useAppStore((state) => state.loadModel);
+
+  // Stable reference to loadModel — avoids infinite useEffect re-triggers.
+  const loadModel = useCallback(() => useAppStore.getState().loadModel(), []);
 
   // Fetch the app model once when the app starts.
   useEffect(() => {

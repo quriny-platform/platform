@@ -16,23 +16,35 @@
  *     "fields": ["name", "price"], "actions": ["UpdateProduct", "DeleteProduct"] }
  */
 
-import { useEffect } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "../store/appStore";
 import type { ComponentProps } from "./registry";
 
+/** Stable empty array to avoid creating new references on every render. */
+const EMPTY_RECORDS: Record<string, unknown>[] = [];
+
 export default function DataTable({ component }: ComponentProps) {
-  const records = useAppStore((state) => state.records[component.entity] ?? []);
+  const recordsRaw = useAppStore((state) => state.records[component.entity]);
+  const records = recordsRaw ?? EMPTY_RECORDS;
   const isLoading = useAppStore(
-    (state) => state.entityLoading[component.entity] ?? false
+    (state) => !!state.entityLoading[component.entity]
   );
-  const loadRecords = useAppStore((state) => state.loadRecords);
-  const deleteRecord = useAppStore((state) => state.deleteRecord);
   const model = useAppStore((state) => state.model);
+
+  // Stable references to store actions — avoids infinite useEffect loops.
+  const loadRecords = useCallback(
+    () => useAppStore.getState().loadRecords(component.entity),
+    [component.entity]
+  );
+  const handleDeleteRecord = useCallback(
+    (recordId: string) => useAppStore.getState().deleteRecord(component.entity, recordId),
+    [component.entity]
+  );
 
   // Fetch records when the component mounts or entity changes.
   useEffect(() => {
-    loadRecords(component.entity);
-  }, [component.entity, loadRecords]);
+    loadRecords();
+  }, [loadRecords]);
 
   /**
    * Check if a specific action type is available for this component.
@@ -69,7 +81,7 @@ export default function DataTable({ component }: ComponentProps) {
   const handleDelete = async (recordId: string) => {
     if (!window.confirm("Are you sure you want to delete this record?")) return;
     try {
-      await deleteRecord(component.entity, recordId);
+      await handleDeleteRecord(recordId);
     } catch (err) {
       console.error("Failed to delete record:", err);
     }
