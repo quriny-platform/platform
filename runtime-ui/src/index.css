@@ -1,0 +1,424 @@
+/**
+ * Quriny Runtime UI — Global Styles
+ *
+ * This stylesheet provides a clean, minimal design system for the runtime UI.
+ * It's intentionally simple — the focus is on functionality, not aesthetics.
+ * A design system (Tailwind, Shadcn, etc.) can replace this later.
+ *
+ * Structure:
+ * 1. CSS Variables (theming)
+ * 2. Reset & Base
+ * 3. Layout (sidebar + main)
+ * 4. Sidebar navigation
+ * 5. Page & component containers
+ * 6. Data table
+ * 7. Data form
+ * 8. Buttons
+ * 9. Utilities (loading, error, empty states)
+ */
+
+/* ---------------------------------------------------------------------------
+   1. CSS Variables
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Colors */
+  --color-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-text: #1a1a2e;
+  --color-text-muted: #6c757d;
+  --color-border: #dee2e6;
+  --color-primary: #4361ee;
+  --color-primary-hover: #3a56d4;
+  --color-danger: #ef476f;
+  --color-danger-hover: #d63e63;
+  --color-success: #06d6a0;
+  --color-sidebar-bg: #1a1a2e;
+  --color-sidebar-text: #adb5bd;
+  --color-sidebar-active: #ffffff;
+  --color-sidebar-hover: rgba(255, 255, 255, 0.1);
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+
+  /* Layout */
+  --sidebar-width: 240px;
+
+  /* Borders */
+  --radius: 6px;
+  --radius-lg: 8px;
+}
+
+/* ---------------------------------------------------------------------------
+   2. Reset & Base
+   --------------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+/* ---------------------------------------------------------------------------
+   3. Layout — sidebar + main content area
+   --------------------------------------------------------------------------- */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.app-main {
+  flex: 1;
+  padding: var(--space-xl);
+  margin-left: var(--sidebar-width);
+  max-width: 1200px;
+}
+
+/* ---------------------------------------------------------------------------
+   4. Sidebar navigation
+   --------------------------------------------------------------------------- */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--color-sidebar-bg);
+  color: var(--color-sidebar-text);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  padding: var(--space-lg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-sidebar-active);
+  letter-spacing: -0.5px;
+}
+
+.sidebar-nav {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.sidebar-link {
+  display: block;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-sidebar-text);
+  text-decoration: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.sidebar-link:hover {
+  background: var(--color-sidebar-hover);
+  color: var(--color-sidebar-active);
+}
+
+.sidebar-link--active {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* ---------------------------------------------------------------------------
+   5. Page & component containers
+   --------------------------------------------------------------------------- */
+
+.dynamic-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: -0.5px;
+}
+
+/* ---------------------------------------------------------------------------
+   6. Data table
+   --------------------------------------------------------------------------- */
+
+.data-table-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.data-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  padding: var(--space-sm) var(--space-lg);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.data-table td {
+  padding: var(--space-sm) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+  font-size: 14px;
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+  background: var(--color-bg);
+}
+
+.actions-cell {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   7. Data form
+   --------------------------------------------------------------------------- */
+
+.data-form-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  max-width: 600px;
+}
+
+.data-form-container h2 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: var(--space-lg);
+}
+
+.data-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.form-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.form-field input[type="text"],
+.form-field input[type="number"],
+.form-field input[type="date"],
+.form-field textarea {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition: border-color 0.15s;
+}
+
+.form-field input:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.15);
+}
+
+.form-field--checkbox label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.form-error {
+  background: rgba(239, 71, 111, 0.1);
+  color: var(--color-danger);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius);
+  font-size: 13px;
+  margin-bottom: var(--space-md);
+}
+
+/* ---------------------------------------------------------------------------
+   8. Buttons
+   --------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn:hover {
+  background: var(--color-bg);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background: transparent;
+}
+
+.btn-danger:hover {
+  background: rgba(239, 71, 111, 0.1);
+}
+
+.btn-sm {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   9. Utilities — loading, error, empty states
+   --------------------------------------------------------------------------- */
+
+.app-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: var(--space-md);
+  color: var(--color-text-muted);
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.app-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: var(--space-md);
+  text-align: center;
+}
+
+.app-error h2 {
+  color: var(--color-danger);
+}
+
+.page-error,
+.component-error {
+  padding: var(--space-lg);
+  color: var(--color-danger);
+  background: rgba(239, 71, 111, 0.05);
+  border: 1px solid rgba(239, 71, 111, 0.2);
+  border-radius: var(--radius);
+}
+
+.loading {
+  padding: var(--space-lg);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.empty-state {
+  padding: var(--space-lg);
+  color: var(--color-text-muted);
+  text-align: center;
+}
