@@ -14,6 +14,11 @@
       "name": "ProductList",
       "path": "/products",
       "components": ["ProductTable"]
+    },
+    {
+      "name": "ProductForm",
+      "path": "/products/new",
+      "components": ["ProductForm"]
     }
   ],
   "components": [
@@ -21,9 +26,25 @@
       "name": "ProductTable",
       "type": "table",
       "entity": "Product",
-      "fields": ["name", "price"]
+      "fields": ["name", "price"],
+      "actions": ["CreateProduct", "UpdateProduct", "DeleteProduct"]
+    },
+    {
+      "name": "ProductForm",
+      "type": "form",
+      "entity": "Product",
+      "fields": ["name", "price"],
+      "actions": ["CreateProduct"]
     }
   ],
-  "actions": [],
-  "navigation": []
+  "actions": [
+    { "name": "CreateProduct", "type": "create", "entity": "Product" },
+    { "name": "ListProducts", "type": "read", "entity": "Product" },
+    { "name": "UpdateProduct", "type": "update", "entity": "Product" },
+    { "name": "DeleteProduct", "type": "delete", "entity": "Product" }
+  ],
+  "navigation": [
+    { "label": "Products", "path": "/products", "page": "ProductList" },
+    { "label": "Add Product", "path": "/products/new", "page": "ProductForm" }
+  ]
 }
